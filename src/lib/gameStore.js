@@ -8,11 +8,27 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-// Game TTL: 4 hours (in seconds)
-const GAME_TTL = 4 * 60 * 60;
+// Game TTL: 1 hour (in seconds)
+const GAME_TTL = 60 * 60;
+
+// Generate a unique 6-digit game PIN
+async function generateUniquePin() {
+  let attempts = 0;
+  while (attempts < 10) {
+    // Generate random 6-digit number (100000-999999)
+    const pin = String(Math.floor(100000 + Math.random() * 900000));
+    const existing = await redis.get(`game:${pin}`);
+    if (!existing) {
+      return pin;
+    }
+    attempts++;
+  }
+  // Fallback to UUID-based if we can't find unique PIN (very unlikely)
+  return uuidv4().slice(0, 6).toUpperCase();
+}
 
 export async function createGame(customQuestions = null) {
-  const gameId = uuidv4().slice(0, 8);
+  const gameId = await generateUniquePin();
   const hostToken = uuidv4();
 
   // Use custom questions if provided, otherwise use default
@@ -94,7 +110,7 @@ export async function getPublicGameState(gameId, playerId = null) {
     buzzes: game.buzzes.map(b => ({
       playerId: b.playerId,
       playerName: game.players[b.playerId]?.name || 'Unknown',
-      timestamp: b.timestamp
+      reactionTime: b.reactionTime
     })),
     eliminatedFromRound: game.eliminatedFromRound,
     myBuzzed: playerId ? game.buzzes.some(b => b.playerId === playerId) : false,
@@ -175,7 +191,7 @@ export async function joinGame(gameId, playerName) {
   return { playerId, playerName };
 }
 
-export async function buzz(gameId, playerId) {
+export async function buzz(gameId, playerId, reactionTime) {
   const game = await redis.get(`game:${gameId}`);
   if (!game) return { error: 'Game not found' };
   if (game.buzzerState !== 'open') return { error: 'Buzzer is not open' };
@@ -183,11 +199,14 @@ export async function buzz(gameId, playerId) {
   if (game.eliminatedFromRound.includes(playerId)) return { error: 'You already got this question wrong' };
   if (game.buzzes.some(b => b.playerId === playerId)) return { error: 'Already buzzed' };
 
-  const timestamp = Date.now();
-  game.buzzes.push({ playerId, timestamp });
+  // Validate reaction time (must be positive and within buzzer window)
+  // Allow small negative values for clock drift, but cap at -100ms
+  const validReactionTime = Math.max(-100, Math.min(reactionTime || 0, 10000));
 
-  // Sort by timestamp
-  game.buzzes.sort((a, b) => a.timestamp - b.timestamp);
+  game.buzzes.push({ playerId, reactionTime: validReactionTime });
+
+  // Sort by reaction time (fastest first)
+  game.buzzes.sort((a, b) => a.reactionTime - b.reactionTime);
   await saveGame(game);
 
   return { success: true, position: game.buzzes.findIndex(b => b.playerId === playerId) + 1 };
@@ -261,6 +280,17 @@ export async function controlGame(gameId, hostToken, action, payload = {}) {
       return { success: true };
     }
 
+    case 'awardPointsToPlayer': {
+      // Award points to any player (not just first buzzer)
+      const { playerId, points } = payload;
+      if (!game.players[playerId]) return { error: 'Player not found' };
+
+      game.players[playerId].score += points;
+      await saveGame(game);
+
+      return { success: true };
+    }
+
     case 'wrongAnswer': {
       const { playerId } = payload;
       if (!game.currentQuestion) return { error: 'No question selected' };
@@ -325,14 +355,21 @@ export async function controlGame(gameId, hostToken, action, payload = {}) {
   }
 }
 
-// Auto-close buzzer after 5 seconds (called from poll endpoint)
+// Auto-close buzzer after 5 seconds OR when all eligible players have buzzed
 export async function checkBuzzerTimeout(gameId) {
   const game = await redis.get(`game:${gameId}`);
   if (!game) return;
 
   if (game.buzzerState === 'open' && game.buzzerOpenedAt) {
     const elapsed = Date.now() - game.buzzerOpenedAt;
-    if (elapsed >= 5000) {
+
+    // Check if all eligible players have buzzed
+    const playerIds = Object.keys(game.players);
+    const eligiblePlayers = playerIds.filter(id => !game.eliminatedFromRound.includes(id));
+    const allBuzzed = eligiblePlayers.length > 0 &&
+      eligiblePlayers.every(id => game.buzzes.some(b => b.playerId === id));
+
+    if (elapsed >= 5000 || allBuzzed) {
       game.buzzerState = 'locked';
       await saveGame(game);
     }

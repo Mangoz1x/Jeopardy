@@ -115,13 +115,17 @@ export default function PlayerPage() {
   const handleBuzz = useCallback(async () => {
     if (!playerId || gameState?.buzzerState !== 'open' || buzzed || gameState?.amEliminated) return;
 
+    // Calculate reaction time immediately when button is pressed
+    const pressTime = Date.now();
+    const reactionTime = pressTime - (gameState?.buzzerOpenedAt || pressTime);
+
     setBuzzed(true);
 
     try {
       const res = await fetch(`/api/game/${gameId}/buzz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId }),
+        body: JSON.stringify({ playerId, reactionTime }),
       });
 
       const data = await res.json();
@@ -131,7 +135,7 @@ export default function PlayerPage() {
     } catch (error) {
       console.error('Buzz error:', error);
     }
-  }, [gameId, playerId, gameState?.buzzerState, gameState?.amEliminated, buzzed]);
+  }, [gameId, playerId, gameState?.buzzerState, gameState?.buzzerOpenedAt, gameState?.amEliminated, buzzed]);
 
   // Game not found
   if (gameNotFound) {

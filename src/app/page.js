@@ -19,6 +19,22 @@ export default function Home() {
   // Generated/edited questions
   const [generatedQuestions, setGeneratedQuestions] = useState(null);
 
+  // Join game
+  const [joinCode, setJoinCode] = useState('');
+  const [joinType, setJoinType] = useState('player'); // 'player' or 'mediator'
+
+  function handleJoinGame(e) {
+    e.preventDefault();
+    const code = joinCode.trim();
+    if (!code) return;
+
+    if (joinType === 'mediator') {
+      router.push(`/mediator/${code}`);
+    } else {
+      router.push(`/play/${code}`);
+    }
+  }
+
   // Load default questions for editing
   function loadDefaultQuestions() {
     // Deep clone to avoid mutating the original
@@ -189,9 +205,58 @@ export default function Home() {
             </div>
           )}
 
-          <p className="text-indigo-300/50 text-sm">
-            Players will join by scanning a QR code on their phones
-          </p>
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-8">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-indigo-400/50 text-sm">or join a game</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          {/* Join Game */}
+          <form onSubmit={handleJoinGame} className="glass rounded-2xl p-6 max-w-md mx-auto">
+            <h3 className="text-white font-semibold mb-4 text-center">Join with Game PIN</h3>
+            <div className="flex gap-3 mb-4">
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter 6-digit PIN"
+                maxLength={6}
+                className="flex-1 px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-center text-xl tracking-widest placeholder-indigo-300/40 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-transparent"
+              />
+              <button
+                type="submit"
+                disabled={joinCode.length !== 6}
+                className="px-6 py-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 disabled:bg-white/5 text-amber-400 disabled:text-indigo-400/30 font-medium transition-colors"
+              >
+                Join
+              </button>
+            </div>
+            <div className="flex justify-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="joinType"
+                  value="player"
+                  checked={joinType === 'player'}
+                  onChange={(e) => setJoinType(e.target.value)}
+                  className="w-4 h-4 accent-amber-400"
+                />
+                <span className="text-indigo-300 text-sm">Player</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="joinType"
+                  value="mediator"
+                  checked={joinType === 'mediator'}
+                  onChange={(e) => setJoinType(e.target.value)}
+                  className="w-4 h-4 accent-amber-400"
+                />
+                <span className="text-indigo-300 text-sm">TV Display</span>
+              </label>
+            </div>
+          </form>
         </div>
       </div>
     );

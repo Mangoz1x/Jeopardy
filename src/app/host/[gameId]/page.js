@@ -137,11 +137,16 @@ export default function HostPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <h1 className="text-5xl font-bold mb-2 bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-200 bg-clip-text text-transparent">
               JEOPARDY!
             </h1>
-            <p className="text-indigo-300">Game Lobby</p>
+            <p className="text-indigo-300 mb-4">Game Lobby</p>
+            {/* Game PIN Display */}
+            <div className="inline-block glass rounded-2xl px-8 py-4">
+              <p className="text-indigo-300/70 text-sm mb-1">Game PIN</p>
+              <p className="text-4xl font-bold text-amber-400 tracking-widest">{gameId}</p>
+            </div>
           </div>
 
           {/* QR Codes */}
@@ -310,6 +315,7 @@ export default function HostPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               Scoreboard
+              <span className="text-indigo-400/50 text-xs font-normal ml-auto">+/- to adjust</span>
             </h2>
             <div className="space-y-2">
               {gameState.players.length === 0 ? (
@@ -320,14 +326,28 @@ export default function HostPage() {
                   .map((player, idx) => (
                     <div
                       key={player.id}
-                      className={`flex justify-between items-center p-3 rounded-xl ${
+                      className={`flex items-center gap-2 p-2 rounded-xl ${
                         idx === 0 && player.score > 0 ? 'bg-amber-400/10 border border-amber-400/20' : 'bg-white/5'
                       }`}
                     >
-                      <span className="text-white">{player.name}</span>
-                      <span className={`font-bold text-lg ${player.score < 0 ? 'text-red-400' : 'text-amber-400'}`}>
-                        ${player.score.toLocaleString()}
-                      </span>
+                      <span className="text-white flex-1 truncate pl-1">{player.name}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => sendControl('awardPointsToPlayer', { playerId: player.id, points: -100 })}
+                          className="w-7 h-7 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-bold transition-colors"
+                        >
+                          −
+                        </button>
+                        <span className={`font-bold text-sm w-16 text-center ${player.score < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                          ${player.score.toLocaleString()}
+                        </span>
+                        <button
+                          onClick={() => sendControl('awardPointsToPlayer', { playerId: player.id, points: 100 })}
+                          className="w-7 h-7 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-sm font-bold transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
                   ))
               )}
