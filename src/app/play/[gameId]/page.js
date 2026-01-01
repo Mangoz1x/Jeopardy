@@ -2,13 +2,22 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 
 export default function PlayerPage() {
   const params = useParams();
   const gameId = params.gameId;
 
-  const [playerId, setPlayerId] = useState(null);
-  const [playerName, setPlayerName] = useState('');
+  // Initialize player data from sessionStorage (lazy initialization)
+  const [playerData, setPlayerData] = useState(() => {
+    if (typeof window === 'undefined') return { id: null, name: '' };
+    const storedPlayerId = sessionStorage.getItem(`player_${gameId}`);
+    const storedPlayerName = sessionStorage.getItem(`playerName_${gameId}`);
+    if (storedPlayerId && storedPlayerName) {
+      return { id: storedPlayerId, name: storedPlayerName };
+    }
+    return { id: null, name: '' };
+  });
   const [nameInput, setNameInput] = useState('');
   const [gameState, setGameState] = useState(null);
   const [joining, setJoining] = useState(false);
@@ -16,16 +25,10 @@ export default function PlayerPage() {
   const [buzzed, setBuzzed] = useState(false);
   const [buzzPosition, setBuzzPosition] = useState(null);
   const [gameNotFound, setGameNotFound] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
 
-  // Load player from sessionStorage
-  useEffect(() => {
-    const storedPlayerId = sessionStorage.getItem(`player_${gameId}`);
-    const storedPlayerName = sessionStorage.getItem(`playerName_${gameId}`);
-    if (storedPlayerId && storedPlayerName) {
-      setPlayerId(storedPlayerId);
-      setPlayerName(storedPlayerName);
-    }
-  }, [gameId]);
+  const playerId = playerData.id;
+  const playerName = playerData.name;
 
   // Check if game exists on mount
   useEffect(() => {
@@ -34,13 +37,18 @@ export default function PlayerPage() {
         const res = await fetch(`/api/game/${gameId}`);
         if (!res.ok) {
           setGameNotFound(true);
+        } else {
+          const data = await res.json();
+          if (data.started && !playerId) {
+            setGameStarted(true);
+          }
         }
       } catch {
         setGameNotFound(true);
       }
     };
     checkGame();
-  }, [gameId]);
+  }, [gameId, playerId]);
 
   // Poll for game state
   useEffect(() => {
@@ -97,9 +105,8 @@ export default function PlayerPage() {
 
       sessionStorage.setItem(`player_${gameId}`, data.playerId);
       sessionStorage.setItem(`playerName_${gameId}`, data.playerName);
-      setPlayerId(data.playerId);
-      setPlayerName(data.playerName);
-    } catch (error) {
+      setPlayerData({ id: data.playerId, name: data.playerName });
+    } catch (err) {
       setError('Failed to join game');
       setJoining(false);
     }
@@ -137,13 +144,36 @@ export default function PlayerPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Game Not Found</h1>
-          <p className="text-indigo-300/70 mb-6">This game doesn't exist or has ended.</p>
-          <a
+          <p className="text-indigo-300/70 mb-6">This game doesn&apos;t exist or has ended.</p>
+          <Link
             href="/"
             className="text-amber-400 hover:text-amber-300 font-medium transition-colors"
           >
             Go to Home
-          </a>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Game already started
+  if (gameStarted && !playerId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-8">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-amber-500/20 flex items-center justify-center">
+            <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Game Already Started</h1>
+          <p className="text-indigo-300/70 mb-6">Sorry, this game has already begun and is no longer accepting new players.</p>
+          <Link
+            href="/"
+            className="text-amber-400 hover:text-amber-300 font-medium transition-colors"
+          >
+            Go to Home
+          </Link>
         </div>
       </div>
     );
@@ -298,14 +328,13 @@ function BuzzerCountdown({ openedAt }) {
   const [remaining, setRemaining] = useState(5);
 
   useEffect(() => {
-    const update = () => {
+    const updateCountdown = () => {
       const elapsed = Date.now() - openedAt;
-      const remaining = Math.max(0, 5000 - elapsed);
-      setRemaining(Math.ceil(remaining / 1000));
+      setRemaining(Math.ceil(Math.max(0, 5000 - elapsed) / 1000));
     };
 
-    update();
-    const interval = setInterval(update, 100);
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 100);
     return () => clearInterval(interval);
   }, [openedAt]);
 

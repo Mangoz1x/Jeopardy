@@ -4,13 +4,16 @@ import questionsData from '@/data/questions.json';
 // In-memory store for all games
 const games = new Map();
 
-export function createGame() {
+export function createGame(customQuestions = null) {
   const gameId = uuidv4().slice(0, 8);
   const hostToken = uuidv4();
 
+  // Use custom questions if provided, otherwise use default
+  const sourceData = customQuestions || questionsData;
+
   // Build board from questions data
-  const categories = questionsData.categories.map(cat => cat.name);
-  const questions = questionsData.categories.map(cat =>
+  const categories = sourceData.categories.map(cat => cat.name);
+  const questions = sourceData.categories.map(cat =>
     cat.questions.map(q => ({
       value: q.value,
       question: q.question,

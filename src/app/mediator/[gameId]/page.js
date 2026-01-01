@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import QRCode from 'qrcode';
 
 export default function MediatorPage() {
@@ -13,7 +14,6 @@ export default function MediatorPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(true);
-  const [countdown, setCountdown] = useState(null);
 
   // Auto-join as mediator on mount
   useEffect(() => {
@@ -84,20 +84,21 @@ export default function MediatorPage() {
     return () => clearInterval(interval);
   }, [gameId, mediatorToken, gameState?.buzzerState]);
 
-  // Countdown timer
+  // Countdown timer - only stores the seconds value, visibility derived from gameState
+  const [countdownSeconds, setCountdownSeconds] = useState(5);
   useEffect(() => {
-    if (gameState?.buzzerState === 'open' && gameState?.buzzerOpenedAt) {
-      const updateCountdown = () => {
-        const elapsed = Date.now() - gameState.buzzerOpenedAt;
-        const remaining = Math.max(0, 5000 - elapsed);
-        setCountdown(Math.ceil(remaining / 1000));
-      };
-      updateCountdown();
-      const interval = setInterval(updateCountdown, 100);
-      return () => clearInterval(interval);
-    } else {
-      setCountdown(null);
+    if (gameState?.buzzerState !== 'open' || !gameState?.buzzerOpenedAt) {
+      return;
     }
+
+    const updateCountdown = () => {
+      const elapsed = Date.now() - gameState.buzzerOpenedAt;
+      const remaining = Math.max(0, 5000 - elapsed);
+      setCountdownSeconds(Math.ceil(remaining / 1000));
+    };
+
+    const interval = setInterval(updateCountdown, 100);
+    return () => clearInterval(interval);
   }, [gameState?.buzzerState, gameState?.buzzerOpenedAt]);
 
   // Loading state
@@ -123,9 +124,9 @@ export default function MediatorPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">{error}</h1>
-          <a href="/" className="text-amber-400 hover:text-amber-300 font-medium transition-colors">
+          <Link href="/" className="text-amber-400 hover:text-amber-300 font-medium transition-colors">
             Go to Home
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -144,6 +145,7 @@ export default function MediatorPage() {
 
         {qrCodeUrl && (
           <div className="bg-white p-6 rounded-3xl shadow-2xl mb-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrCodeUrl} alt="Join QR Code" className="w-72 h-72 md:w-96 md:h-96" />
           </div>
         )}
@@ -224,7 +226,7 @@ export default function MediatorPage() {
 
               {gameState.buzzerState === 'open' && (
                 <div>
-                  <div className="text-8xl font-bold text-amber-400 mb-4 animate-pulse">{countdown}</div>
+                  <div className="text-8xl font-bold text-amber-400 mb-4 animate-pulse">{countdownSeconds}</div>
                   <p className="text-emerald-400 text-2xl">BUZZ NOW!</p>
                 </div>
               )}
