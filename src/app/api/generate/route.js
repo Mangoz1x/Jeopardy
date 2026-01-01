@@ -35,7 +35,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
-    const values = [200, 400, 600, 800, 1000].slice(0, questionsPerCategory);
+    const values = [200, 400, 600, 800, 1000, 1200].slice(0, questionsPerCategory);
 
     const prompt = `Generate a Jeopardy game with exactly ${numCategories} categories based on these topics: ${topics.join(', ')}.
 

@@ -41,6 +41,7 @@ export async function createGame(customQuestions = null) {
     buzzerOpenedAt: null,
     buzzes: [],
     eliminatedFromRound: [], // Array instead of Set for JSON serialization
+    answerRevealed: false,
   };
 
   await redis.set(`game:${gameId}`, game, { ex: GAME_TTL });
@@ -98,6 +99,7 @@ export async function getPublicGameState(gameId, playerId = null) {
     eliminatedFromRound: game.eliminatedFromRound,
     myBuzzed: playerId ? game.buzzes.some(b => b.playerId === playerId) : false,
     amEliminated: playerId ? game.eliminatedFromRound.includes(playerId) : false,
+    answerRevealed: game.answerRevealed,
   };
 }
 
@@ -121,8 +123,17 @@ export async function getMediatorGameState(gameId, mediatorToken) {
   const game = await redis.get(`game:${gameId}`);
   if (!game || game.mediatorToken !== mediatorToken) return null;
 
-  // Mediator gets public state (no answer shown)
-  return await getPublicGameState(gameId);
+  // Mediator gets public state
+  const publicState = await getPublicGameState(gameId);
+
+  // Include answer if revealed
+  if (game.answerRevealed && game.currentQuestion) {
+    const { categoryIdx, questionIdx } = game.currentQuestion;
+    const q = game.board.questions[categoryIdx][questionIdx];
+    publicState.currentQuestion.answer = q.answer;
+  }
+
+  return publicState;
 }
 
 export async function joinAsMediator(gameId) {
@@ -203,6 +214,14 @@ export async function controlGame(gameId, hostToken, action, payload = {}) {
       game.buzzerState = 'closed';
       game.buzzes = [];
       game.eliminatedFromRound = [];
+      game.answerRevealed = false;
+      await saveGame(game);
+      return { success: true };
+    }
+
+    case 'revealAnswer': {
+      if (!game.currentQuestion) return { error: 'No question selected' };
+      game.answerRevealed = true;
       await saveGame(game);
       return { success: true };
     }

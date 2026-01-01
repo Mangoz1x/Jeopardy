@@ -346,11 +346,24 @@ export default function HostPage() {
                 <p className="text-white leading-relaxed">{gameState.currentQuestion.question}</p>
               </div>
 
-              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-6">
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-4">
                 <p className="text-emerald-300 text-sm">
                   <span className="font-medium">Answer:</span> {gameState.currentQuestion.answer}
                 </p>
               </div>
+
+              {/* Reveal Answer Button */}
+              <button
+                onClick={() => sendControl('revealAnswer')}
+                disabled={gameState.answerRevealed}
+                className={`w-full mb-6 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  gameState.answerRevealed
+                    ? 'bg-amber-500/20 text-amber-300 cursor-default'
+                    : 'bg-white/10 hover:bg-white/20 text-indigo-300'
+                }`}
+              >
+                {gameState.answerRevealed ? '✓ Answer Shown on TV' : 'Reveal Answer on TV'}
+              </button>
 
               {/* Buzzer Section */}
               <div className="border-t border-white/10 pt-4">

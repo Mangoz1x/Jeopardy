@@ -218,6 +218,15 @@ export default function MediatorPage() {
               </p>
             </div>
 
+            {/* Answer (shown when revealed) */}
+            {gameState.answerRevealed && gameState.currentQuestion.answer && (
+              <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-3xl p-8 mb-8">
+                <p className="text-emerald-400 text-3xl md:text-4xl text-center font-medium">
+                  {gameState.currentQuestion.answer}
+                </p>
+              </div>
+            )}
+
             {/* Buzzer Status */}
             <div className="text-center">
               {gameState.buzzerState === 'closed' && (
