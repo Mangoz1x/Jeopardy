@@ -1,10 +1,17 @@
+import { Redis } from '@upstash/redis';
 import { v4 as uuidv4 } from 'uuid';
 import questionsData from '@/data/questions.json';
 
-// In-memory store for all games
-const games = new Map();
+// Initialize Redis client
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
-export function createGame(customQuestions = null) {
+// Game TTL: 4 hours (in seconds)
+const GAME_TTL = 4 * 60 * 60;
+
+export async function createGame(customQuestions = null) {
   const gameId = uuidv4().slice(0, 8);
   const hostToken = uuidv4();
 
@@ -25,31 +32,35 @@ export function createGame(customQuestions = null) {
   const game = {
     id: gameId,
     hostToken,
-    mediatorToken: null, // Set when mediator joins
-    started: false, // When true, no more players can join
+    mediatorToken: null,
+    started: false,
     board: { categories, questions },
-    players: new Map(),
+    players: {}, // Object instead of Map for JSON serialization
     currentQuestion: null,
-    buzzerState: 'closed', // 'closed', 'open', 'locked'
+    buzzerState: 'closed',
     buzzerOpenedAt: null,
     buzzes: [],
-    eliminatedFromRound: new Set(), // Players who got it wrong this round
+    eliminatedFromRound: [], // Array instead of Set for JSON serialization
   };
 
-  games.set(gameId, game);
+  await redis.set(`game:${gameId}`, game, { ex: GAME_TTL });
   return { gameId, hostToken };
 }
 
-export function getGame(gameId) {
-  return games.get(gameId);
+export async function getGame(gameId) {
+  return await redis.get(`game:${gameId}`);
 }
 
-export function getPublicGameState(gameId, playerId = null) {
-  const game = games.get(gameId);
+async function saveGame(game) {
+  await redis.set(`game:${game.id}`, game, { ex: GAME_TTL });
+}
+
+export async function getPublicGameState(gameId, playerId = null) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game) return null;
 
-  // Convert players Map to array
-  const players = Array.from(game.players.entries()).map(([id, data]) => ({
+  // Convert players object to array
+  const players = Object.entries(game.players).map(([id, data]) => ({
     id,
     name: data.name,
     score: data.score
@@ -81,20 +92,20 @@ export function getPublicGameState(gameId, playerId = null) {
     buzzerOpenedAt: game.buzzerOpenedAt,
     buzzes: game.buzzes.map(b => ({
       playerId: b.playerId,
-      playerName: game.players.get(b.playerId)?.name || 'Unknown',
+      playerName: game.players[b.playerId]?.name || 'Unknown',
       timestamp: b.timestamp
     })),
-    eliminatedFromRound: Array.from(game.eliminatedFromRound),
+    eliminatedFromRound: game.eliminatedFromRound,
     myBuzzed: playerId ? game.buzzes.some(b => b.playerId === playerId) : false,
-    amEliminated: playerId ? game.eliminatedFromRound.has(playerId) : false,
+    amEliminated: playerId ? game.eliminatedFromRound.includes(playerId) : false,
   };
 }
 
-export function getHostGameState(gameId, hostToken) {
-  const game = games.get(gameId);
+export async function getHostGameState(gameId, hostToken) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game || game.hostToken !== hostToken) return null;
 
-  const publicState = getPublicGameState(gameId);
+  const publicState = await getPublicGameState(gameId);
 
   // Add answer for host
   if (game.currentQuestion) {
@@ -106,16 +117,16 @@ export function getHostGameState(gameId, hostToken) {
   return publicState;
 }
 
-export function getMediatorGameState(gameId, mediatorToken) {
-  const game = games.get(gameId);
+export async function getMediatorGameState(gameId, mediatorToken) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game || game.mediatorToken !== mediatorToken) return null;
 
   // Mediator gets public state (no answer shown)
-  return getPublicGameState(gameId);
+  return await getPublicGameState(gameId);
 }
 
-export function joinAsMediator(gameId) {
-  const game = games.get(gameId);
+export async function joinAsMediator(gameId) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game) return { error: 'Game not found' };
 
   // Only one mediator allowed
@@ -125,12 +136,13 @@ export function joinAsMediator(gameId) {
 
   const mediatorToken = uuidv4();
   game.mediatorToken = mediatorToken;
+  await saveGame(game);
 
   return { mediatorToken };
 }
 
-export function joinGame(gameId, playerName) {
-  const game = games.get(gameId);
+export async function joinGame(gameId, playerName) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game) return { error: 'Game not found' };
 
   // Check if game has started
@@ -139,24 +151,25 @@ export function joinGame(gameId, playerName) {
   }
 
   // Check for duplicate names
-  for (const [, data] of game.players) {
+  for (const [, data] of Object.entries(game.players)) {
     if (data.name.toLowerCase() === playerName.toLowerCase()) {
       return { error: 'Name already taken' };
     }
   }
 
   const playerId = uuidv4().slice(0, 8);
-  game.players.set(playerId, { name: playerName, score: 0 });
+  game.players[playerId] = { name: playerName, score: 0 };
+  await saveGame(game);
 
   return { playerId, playerName };
 }
 
-export function buzz(gameId, playerId) {
-  const game = games.get(gameId);
+export async function buzz(gameId, playerId) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game) return { error: 'Game not found' };
   if (game.buzzerState !== 'open') return { error: 'Buzzer is not open' };
-  if (!game.players.has(playerId)) return { error: 'Player not in game' };
-  if (game.eliminatedFromRound.has(playerId)) return { error: 'You already got this question wrong' };
+  if (!game.players[playerId]) return { error: 'Player not in game' };
+  if (game.eliminatedFromRound.includes(playerId)) return { error: 'You already got this question wrong' };
   if (game.buzzes.some(b => b.playerId === playerId)) return { error: 'Already buzzed' };
 
   const timestamp = Date.now();
@@ -164,18 +177,20 @@ export function buzz(gameId, playerId) {
 
   // Sort by timestamp
   game.buzzes.sort((a, b) => a.timestamp - b.timestamp);
+  await saveGame(game);
 
   return { success: true, position: game.buzzes.findIndex(b => b.playerId === playerId) + 1 };
 }
 
-export function controlGame(gameId, hostToken, action, payload = {}) {
-  const game = games.get(gameId);
+export async function controlGame(gameId, hostToken, action, payload = {}) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game) return { error: 'Game not found' };
   if (game.hostToken !== hostToken) return { error: 'Invalid host token' };
 
   switch (action) {
     case 'startGame': {
       game.started = true;
+      await saveGame(game);
       return { success: true };
     }
 
@@ -187,7 +202,8 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
       game.currentQuestion = { categoryIdx, questionIdx };
       game.buzzerState = 'closed';
       game.buzzes = [];
-      game.eliminatedFromRound = new Set();
+      game.eliminatedFromRound = [];
+      await saveGame(game);
       return { success: true };
     }
 
@@ -195,12 +211,13 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
       if (!game.currentQuestion) return { error: 'No question selected' };
       game.buzzerState = 'open';
       game.buzzerOpenedAt = Date.now();
-      // Auto-close after 5 seconds is handled client-side + poll
+      await saveGame(game);
       return { success: true };
     }
 
     case 'closeBuzzer': {
       game.buzzerState = 'locked';
+      await saveGame(game);
       return { success: true };
     }
 
@@ -210,9 +227,8 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
       const { categoryIdx, questionIdx } = game.currentQuestion;
       const question = game.board.questions[categoryIdx][questionIdx];
 
-      const player = game.players.get(playerId);
-      if (player) {
-        player.score += question.value;
+      if (game.players[playerId]) {
+        game.players[playerId].score += question.value;
       }
 
       // Mark question as used
@@ -220,7 +236,8 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
       game.currentQuestion = null;
       game.buzzerState = 'closed';
       game.buzzes = [];
-      game.eliminatedFromRound = new Set();
+      game.eliminatedFromRound = [];
+      await saveGame(game);
 
       return { success: true };
     }
@@ -231,18 +248,20 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
       const { categoryIdx, questionIdx } = game.currentQuestion;
       const question = game.board.questions[categoryIdx][questionIdx];
 
-      const player = game.players.get(playerId);
-      if (player) {
-        player.score -= question.value;
+      if (game.players[playerId]) {
+        game.players[playerId].score -= question.value;
       }
 
-      // Add to eliminated set
-      game.eliminatedFromRound.add(playerId);
+      // Add to eliminated array
+      if (!game.eliminatedFromRound.includes(playerId)) {
+        game.eliminatedFromRound.push(playerId);
+      }
 
       // Clear buzzes and reopen for others
       game.buzzes = [];
       game.buzzerState = 'open';
       game.buzzerOpenedAt = Date.now();
+      await saveGame(game);
 
       return { success: true };
     }
@@ -256,7 +275,8 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
       game.currentQuestion = null;
       game.buzzerState = 'closed';
       game.buzzes = [];
-      game.eliminatedFromRound = new Set();
+      game.eliminatedFromRound = [];
+      await saveGame(game);
 
       return { success: true };
     }
@@ -265,17 +285,19 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
       // Keep the same question but reset buzzer state
       game.buzzerState = 'closed';
       game.buzzes = [];
-      game.eliminatedFromRound = new Set();
+      game.eliminatedFromRound = [];
+      await saveGame(game);
       return { success: true };
     }
 
     case 'disconnectMediator': {
       game.mediatorToken = null;
+      await saveGame(game);
       return { success: true };
     }
 
     case 'endGame': {
-      games.delete(gameId);
+      await redis.del(`game:${gameId}`);
       return { success: true, ended: true };
     }
 
@@ -285,14 +307,15 @@ export function controlGame(gameId, hostToken, action, payload = {}) {
 }
 
 // Auto-close buzzer after 5 seconds (called from poll endpoint)
-export function checkBuzzerTimeout(gameId) {
-  const game = games.get(gameId);
+export async function checkBuzzerTimeout(gameId) {
+  const game = await redis.get(`game:${gameId}`);
   if (!game) return;
 
   if (game.buzzerState === 'open' && game.buzzerOpenedAt) {
     const elapsed = Date.now() - game.buzzerOpenedAt;
     if (elapsed >= 5000) {
       game.buzzerState = 'locked';
+      await saveGame(game);
     }
   }
 }

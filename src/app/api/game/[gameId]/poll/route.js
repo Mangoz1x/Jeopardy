@@ -8,13 +8,13 @@ export async function GET(request, { params }) {
   const playerId = searchParams.get('playerId');
 
   // Check and auto-close buzzer if timeout
-  checkBuzzerTimeout(gameId);
+  await checkBuzzerTimeout(gameId);
 
   let state;
   if (hostToken) {
-    state = getHostGameState(gameId, hostToken);
+    state = await getHostGameState(gameId, hostToken);
   } else {
-    state = getPublicGameState(gameId, playerId);
+    state = await getPublicGameState(gameId, playerId);
   }
 
   if (!state) {

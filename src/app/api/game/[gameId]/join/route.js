@@ -9,12 +9,12 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
   }
 
-  const game = getGame(gameId);
+  const game = await getGame(gameId);
   if (!game) {
     return NextResponse.json({ error: 'Game not found' }, { status: 404 });
   }
 
-  const result = joinGame(gameId, playerName.trim());
+  const result = await joinGame(gameId, playerName.trim());
 
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 400 });

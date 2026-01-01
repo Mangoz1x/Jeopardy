@@ -5,7 +5,7 @@ import { joinAsMediator, getMediatorGameState, checkBuzzerTimeout } from '@/lib/
 export async function POST(request, { params }) {
   const { gameId } = await params;
 
-  const result = joinAsMediator(gameId);
+  const result = await joinAsMediator(gameId);
 
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 400 });
@@ -25,9 +25,9 @@ export async function GET(request, { params }) {
   }
 
   // Check and auto-close buzzer if timeout
-  checkBuzzerTimeout(gameId);
+  await checkBuzzerTimeout(gameId);
 
-  const state = getMediatorGameState(gameId, mediatorToken);
+  const state = await getMediatorGameState(gameId, mediatorToken);
 
   if (!state) {
     return NextResponse.json({ error: 'Invalid mediator token or game not found' }, { status: 404 });

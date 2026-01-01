@@ -13,7 +13,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Action is required' }, { status: 400 });
   }
 
-  const result = controlGame(gameId, hostToken, action, payload || {});
+  const result = await controlGame(gameId, hostToken, action, payload || {});
 
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 400 });

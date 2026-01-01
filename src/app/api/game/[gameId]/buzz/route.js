@@ -9,7 +9,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Player ID is required' }, { status: 400 });
   }
 
-  const result = buzz(gameId, playerId);
+  const result = await buzz(gameId, playerId);
 
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 400 });

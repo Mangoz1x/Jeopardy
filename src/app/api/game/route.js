@@ -6,7 +6,7 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const { customQuestions } = body;
 
-    const { gameId, hostToken } = createGame(customQuestions || null);
+    const { gameId, hostToken } = await createGame(customQuestions || null);
     return NextResponse.json({ gameId, hostToken });
   } catch (error) {
     console.error('Create game error:', error);
