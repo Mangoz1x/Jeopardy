@@ -1,0 +1,64 @@
+{
+  "categories": [
+    {
+      "name": "Science",
+      "questions": [
+        { "value": 200, "question": "This planet is known as the Red Planet", "answer": "What is Mars?" },
+        { "value": 400, "question": "This element has the chemical symbol 'O'", "answer": "What is Oxygen?" },
+        { "value": 600, "question": "This scientist developed the theory of relativity", "answer": "Who is Albert Einstein?" },
+        { "value": 800, "question": "This is the hardest natural substance on Earth", "answer": "What is Diamond?" },
+        { "value": 1000, "question": "This organ in the human body is responsible for filtering blood", "answer": "What is the Kidney?" }
+      ]
+    },
+    {
+      "name": "History",
+      "questions": [
+        { "value": 200, "question": "This year marked the end of World War II", "answer": "What is 1945?" },
+        { "value": 400, "question": "This ancient wonder was located in Alexandria, Egypt", "answer": "What is the Lighthouse of Alexandria?" },
+        { "value": 600, "question": "This explorer is credited with discovering America in 1492", "answer": "Who is Christopher Columbus?" },
+        { "value": 800, "question": "This wall divided East and West Berlin", "answer": "What is the Berlin Wall?" },
+        { "value": 1000, "question": "This empire was ruled by Genghis Khan", "answer": "What is the Mongol Empire?" }
+      ]
+    },
+    {
+      "name": "Movies",
+      "questions": [
+        { "value": 200, "question": "This 1994 film features a man sitting on a bench talking about chocolates", "answer": "What is Forrest Gump?" },
+        { "value": 400, "question": "This director is known for films like Inception and The Dark Knight", "answer": "Who is Christopher Nolan?" },
+        { "value": 600, "question": "This animated film features a clownfish searching for his son", "answer": "What is Finding Nemo?" },
+        { "value": 800, "question": "This 1999 film reveals its main character has been dead the whole time", "answer": "What is The Sixth Sense?" },
+        { "value": 1000, "question": "This film won Best Picture at the 2020 Academy Awards", "answer": "What is Parasite?" }
+      ]
+    },
+    {
+      "name": "Sports",
+      "questions": [
+        { "value": 200, "question": "This sport uses a shuttlecock", "answer": "What is Badminton?" },
+        { "value": 400, "question": "This country has won the most FIFA World Cups", "answer": "What is Brazil?" },
+        { "value": 600, "question": "This NBA player is known as 'The King'", "answer": "Who is LeBron James?" },
+        { "value": 800, "question": "This golf tournament is held at Augusta National", "answer": "What is The Masters?" },
+        { "value": 1000, "question": "This boxer was known as 'The Greatest'", "answer": "Who is Muhammad Ali?" }
+      ]
+    },
+    {
+      "name": "Geography",
+      "questions": [
+        { "value": 200, "question": "This is the largest continent by land area", "answer": "What is Asia?" },
+        { "value": 400, "question": "This river is the longest in Africa", "answer": "What is the Nile?" },
+        { "value": 600, "question": "This country has the most time zones", "answer": "What is France?" },
+        { "value": 800, "question": "This is the smallest country in the world", "answer": "What is Vatican City?" },
+        { "value": 1000, "question": "This desert is the largest hot desert in the world", "answer": "What is the Sahara?" }
+      ]
+    },
+    {
+      "name": "Music",
+      "questions": [
+        { "value": 200, "question": "This band released the album 'Abbey Road'", "answer": "Who are The Beatles?" },
+        { "value": 400, "question": "This pop star is known as the 'Queen of Pop'", "answer": "Who is Madonna?" },
+        { "value": 600, "question": "This composer wrote 'Moonlight Sonata'", "answer": "Who is Beethoven?" },
+        { "value": 800, "question": "This instrument has 88 keys", "answer": "What is the Piano?" },
+        { "value": 1000, "question": "This artist released the album 'Thriller' in 1982", "answer": "Who is Michael Jackson?" }
+      ]
+    }
+  ]
+}
